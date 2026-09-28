@@ -42,7 +42,7 @@ Set **Remote sync URL** to `http://localhost:8088/api/` (or your public HTTPS UR
 
 | Variable | Default | Meaning |
 |----------|---------|--------|
-| `PORT` | `8080` | Listen port inside container |
+| `PORT` | `8090` | Listen port inside container |
 | `DATA_FILE` | `/data/project.json` | Snapshot path inside container |
 | `CORS_ORIGIN` | `*` | Allowed browser origin (set to your UI URL in production) |
 | `BASIC_AUTH_USER` | _(empty)_ | Enable basic auth if set |
@@ -73,5 +73,5 @@ If you enable basic auth, the browser `fetch` from the HTML app does **not** sen
 
 ```bash
 mkdir -p /tmp/rs-data
-DATA_FILE=/tmp/rs-data/project.json PORT=8080 python3 server.py
+DATA_FILE=/tmp/rs-data/project.json PORT=8090 python3 server.py
 ```

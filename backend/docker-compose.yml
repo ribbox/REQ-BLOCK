@@ -1,17 +1,12 @@
-# Requirement Scratch – self-hosted backend
+# Requirement Scratch – self-hosted backend (API only)
 #
-# Usage:
-#   cd backend
-#   docker compose up -d --build
+#   cd backend && docker compose up -d --build
 #
-# API (host port 8090 — avoids common 8080 conflicts):
-#   GET  http://localhost:8090/        → project JSON
-#   PUT  http://localhost:8090/        → save project JSON
-#   GET  http://localhost:8090/health  → health check
+# API on host port 8090 (does NOT use 8080):
+#   GET/PUT http://localhost:8090/
+#   GET     http://localhost:8090/health
 #
-# In the web app Settings:
-#   Remote sync URL = http://YOUR_SERVER:8090/
-#   (use https:// behind a reverse proxy in production)
+# Settings → Remote sync URL = http://YOUR_SERVER:8090/
 
 services:
   requirements-api:
@@ -20,24 +15,18 @@ services:
     container_name: requirement-scratch-api
     restart: unless-stopped
     ports:
-      # Host 8090 → container 8080 (8080 often used by other stacks)
-      - "8090:8080"
+      - "8090:8090"
     environment:
       HOST: "0.0.0.0"
-      PORT: "8080"
+      PORT: "8090"
       DATA_FILE: "/data/project.json"
-      # Restrict CORS to your UI origin in production, e.g.:
-      # CORS_ORIGIN: "https://requirements.example.com"
       CORS_ORIGIN: "*"
-      # Optional basic auth (leave empty to disable):
-      # BASIC_AUTH_USER: "team"
-      # BASIC_AUTH_PASSWORD: "change-me"
       BASIC_AUTH_USER: "${BASIC_AUTH_USER:-}"
       BASIC_AUTH_PASSWORD: "${BASIC_AUTH_PASSWORD:-}"
     volumes:
       - requirements_data:/data
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8090/health"]
       interval: 30s
       timeout: 5s
       retries: 3
