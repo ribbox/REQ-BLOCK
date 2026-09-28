@@ -35,7 +35,7 @@ cd backend
 docker compose up -d --build
 ```
 
-Remote URL: `http://YOUR_HOST:8080/`
+Remote URL: `http://YOUR_HOST:8090/`
 
 See [backend/README.md](backend/README.md) for environment variables, auth, and production notes.
 

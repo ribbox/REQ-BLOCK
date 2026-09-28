@@ -4,13 +4,13 @@
 #   cd backend
 #   docker compose up -d --build
 #
-# API:
-#   GET  http://localhost:8080/        → project JSON
-#   PUT  http://localhost:8080/        → save project JSON
-#   GET  http://localhost:8080/health  → health check
+# API (host port 8090 — avoids common 8080 conflicts):
+#   GET  http://localhost:8090/        → project JSON
+#   PUT  http://localhost:8090/        → save project JSON
+#   GET  http://localhost:8090/health  → health check
 #
 # In the web app Settings:
-#   Remote sync URL = http://YOUR_SERVER:8080/
+#   Remote sync URL = http://YOUR_SERVER:8090/
 #   (use https:// behind a reverse proxy in production)
 
 services:
@@ -20,7 +20,8 @@ services:
     container_name: requirement-scratch-api
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      # Host 8090 → container 8080 (8080 often used by other stacks)
+      - "8090:8080"
     environment:
       HOST: "0.0.0.0"
       PORT: "8080"

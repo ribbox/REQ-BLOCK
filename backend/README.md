@@ -18,12 +18,12 @@ docker compose up -d --build
 
 | Endpoint | Description |
 |----------|-------------|
-| `GET  http://localhost:8080/` | Load project JSON |
-| `PUT  http://localhost:8080/` | Save project JSON |
-| `POST http://localhost:8080/` | Same as PUT (fallback) |
-| `GET  http://localhost:8080/health` | Health check |
+| `GET  http://localhost:8090/` | Load project JSON |
+| `PUT  http://localhost:8090/` | Save project JSON |
+| `POST http://localhost:8090/` | Same as PUT (fallback) |
+| `GET  http://localhost:8090/health` | Health check |
 
-In the web app: **Settings → Remote sync URL** = `http://YOUR_HOST:8080/`
+In the web app: **Settings → Remote sync URL** = `http://YOUR_HOST:8090/`
 
 ## Full stack (UI + API behind nginx)
 
@@ -34,7 +34,7 @@ docker compose up -d --build
 ```
 
 - UI:  http://localhost:8088/
-- API:  http://localhost:8088/api/
+- API: http://localhost:8088/api/
 
 Set **Remote sync URL** to `http://localhost:8088/api/` (or your public HTTPS URL + `/api/`).
 
@@ -42,7 +42,7 @@ Set **Remote sync URL** to `http://localhost:8088/api/` (or your public HTTPS UR
 
 | Variable | Default | Meaning |
 |----------|---------|--------|
-| `PORT` | `8080` | Listen port |
+| `PORT` | `8080` | Listen port inside container |
 | `DATA_FILE` | `/data/project.json` | Snapshot path inside container |
 | `CORS_ORIGIN` | `*` | Allowed browser origin (set to your UI URL in production) |
 | `BASIC_AUTH_USER` | _(empty)_ | Enable basic auth if set |
