@@ -34,14 +34,14 @@ Inside Docker network: service name `api`, listen **8090**. nginx proxies `/api/
 
 ## Path-prefix deploy (Caddy)
 
-Typical public URL: `https://ribbox.no-ip.org/req-block/`
+Typical public URL: `https://example.com/req-block/`
 
 Caddy should use **`handle_path /req-block/*`** → `host:8088` so the container still sees `/` and `/api/`.
 
 **Critical:**
 
 1. **Remote sync URL** in the app must be the public path including prefix and trailing slash, e.g.  
-   `https://ribbox.no-ip.org/req-block/api/`
+   `https://example.com/req-block/api/`
 2. Client code must **keep a trailing slash** on the remote URL. Stripping `/api/` → `/api` causes **301** redirects; browsers fail **PUT** with “Failed to fetch”.
 3. nginx must **not** emit absolute redirects to `/api/` (drops the `/req-block` prefix). Use `absolute_redirect off` and proxy both `/api` and `/api/` without `return 301`.
 4. Prefer Caddy **308** (not 301) if normalizing trailing slashes so PUT is preserved.
