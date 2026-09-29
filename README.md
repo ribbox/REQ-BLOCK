@@ -45,4 +45,16 @@ See [backend/README.md](backend/README.md) for environment variables, auth, and 
 
 ## License
 
-Use and modify as needed for your team.
+This project is licensed under the **Apache License 2.0**.
+
+[Blockly](https://developers.google.com/blockly) (loaded from CDN in the web UI) is also licensed under the Apache License 2.0. Using Apache-2.0 for this repository matches Blockly’s terms and keeps redistribution straightforward.
+
+You may use, modify, and distribute this software under the Apache-2.0 conditions, including retaining copyright and license notices. See the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0) for the full text.
+
+**Third-party**
+
+| Component | License |
+|-----------|---------|
+| [Blockly](https://github.com/google/blockly) | Apache-2.0 |
+
+This project is not affiliated with Google or the Raspberry Pi Foundation.
