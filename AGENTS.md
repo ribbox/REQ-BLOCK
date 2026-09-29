@@ -2,84 +2,117 @@
 
 Guidance for AI agents (and humans) working on this repository.
 
+**Keep this file current** when behaviour, UI, deploy, or layout changes. Prefer updating `AGENTS.md` in the same change as the code it describes.
+
 ## What this project is
 
-Visual, Scratch-style **requirements builder** (Blockly blocks with typed connections). Users assemble requirements from reusable pieces, manage multiple pages, persist locally, and sync a full project snapshot to a self-hosted API (no live co-editing of the Blockly workspace).
+Visual, Scratch-style **requirements builder** (Blockly blocks with typed connections). Users assemble requirements from reusable pieces, manage multiple pages, persist in the browser, and sync a full project **snapshot** to a self-hosted API.
 
-Primary UI: single-file `requirement_scratch.html` (HTML + CSS + JS, Blockly from CDN).
+There is **no live co-editing** of the Blockly workspace — only Load / Sync of the whole JSON snapshot.
 
-Backend: small Python stdlib HTTP server (`backend/server.py`) storing one JSON snapshot with ETag / If-Match conflict detection.
+- **UI:** single-file `requirement_scratch.html` (HTML + CSS + JS; Blockly from CDN)
+- **API:** Python stdlib HTTP server (`backend/server.py`) — one JSON file, ETag / If-Match
+- **License:** Apache-2.0 (aligned with Blockly)
 
-## Layout
+## Repository layout
 
 | Path | Role |
 |------|------|
-| `requirement_scratch.html` | Full web app (mount as nginx `index.html` in full stack) |
-| `docker-compose.yml` | Full stack: API + nginx UI on host **8088** |
-| `backend/` | API image, API-only compose (host **8090**), nginx conf |
+| `requirement_scratch.html` | Full web app (Docker mounts as nginx `index.html`) |
+| `requirement_scratch_pre_multiuser_backup.html` | Snapshot from before multi-user sync |
+| `docker-compose.yml` | Full stack: `api` + `web` (nginx) on host **8088** |
 | `backend/server.py` | GET/PUT/POST `/`, GET `/health` |
-| `patches/` | Small documented fixes (e.g. confirm modal labels) |
-| `restore-html.sh` | Rebuild HTML from compressed payload if needed |
+| `backend/nginx.conf` | SPA + `/api` proxy; no absolute redirects |
+| `backend/Dockerfile` | API image |
+| `backend/docker-compose.yml` | API-only on host **8090** |
+| `AGENTS.md` | This file |
+| `README.md` | User-facing quick start + license |
 
-Do **not** bind host port **8080** (often taken by other stacks on this user’s hosts).
+Do **not** reintroduce recovery artifacts (`restore-html.sh`, `*.gz.b64`, `*.part0`, `patches/`) unless explicitly requested.
 
-## Ports (intentional)
+## Ports
 
 | Mode | Host port | Notes |
 |------|-----------|--------|
-| Full stack UI + API | **8088** | Only published host port; API internal on **8090** |
+| Full stack | **8088** | Only published host port; API listens internally on **8090** |
 | API only | **8090** | `backend/docker-compose.yml` |
 
-Inside Docker network: service name `api`, listen **8090**. nginx proxies `/api/` → `http://api:8090/`.
+Do **not** bind host **8080** (often used by other containers on this host).
 
-## Path-prefix deploy (Caddy)
+Docker service name for the API: **`api`**. nginx uses Docker DNS (`127.0.0.11`) and a variable `proxy_pass` so `api` is resolved at **request** time (avoids nginx crash if `api` is not ready at startup). `web` waits for `api` **healthcheck** (`GET /health`).
 
-Typical public URL: `https://example.com/req-block/`
+## Header toolbar (icon-only)
 
-Caddy should use **`handle_path /req-block/*`** → `host:8088` so the container still sees `/` and `/api/`.
+| Icon | Action |
+|------|--------|
+| ℹ️ | Info panel (toolbar table + piece colour key) |
+| 💾 | Save current requirement text to **this page’s list** |
+| ☁️ | **Sync to server** (PUT full snapshot) — not in Settings |
+| 📚 | Add selected block to reusable library (same category) |
+| 🗑️ | Clear blocks on this page |
+| ⚙️ | Settings (remote URL, load from remote, import/export, clear local) |
 
-**Critical:**
-
-1. **Remote sync URL** in the app must be the public path including prefix and trailing slash, e.g.  
-   `https://example.com/req-block/api/`
-2. Client code must **keep a trailing slash** on the remote URL. Stripping `/api/` → `/api` causes **301** redirects; browsers fail **PUT** with “Failed to fetch”.
-3. nginx must **not** emit absolute redirects to `/api/` (drops the `/req-block` prefix). Use `absolute_redirect off` and proxy both `/api` and `/api/` without `return 301`.
-4. Prefer Caddy **308** (not 301) if normalizing trailing slashes so PUT is preserved.
-5. Full stack needs **one** Caddy upstream (**8088**). Do not map the API container separately when using root `docker-compose.yml`.
-
-## Multi-user model
-
-- **Snapshot sync only** (Load / Save full JSON). No live Blockly collaboration.
-- Conflict: client sends `If-Match: <etag>`; server returns **412** if stale → user loads remote, then saves again.
-- Optional poll interval in Settings can prompt “Remote update available” → confirm button must be **Load remote**, not Delete.
+- Header title is only **🧩** (favicon matches). Tab title: “Requirement Builder”.
+- There is **no** “Generate Requirement” button — the sentence updates **live** as blocks connect.
+- Settings still has **Load from remote**; save/sync is the header **☁️** only.
 
 ## Confirm modals
 
 `showConfirmModal(title, message, options)`:
 
-- `options.confirmLabel` — button text (default `OK`)
-- `options.danger` — red styling for destructive actions
+- `confirmLabel` — primary button text (default `OK`)
+- `danger: true` — red styling for destructive actions
 
-Remote update → `{ confirmLabel: 'Load remote' }`.  
-Deletes/clears → `{ confirmLabel: '…', danger: true }`.
+| Dialog | Confirm label |
+|--------|----------------|
+| Remote update available | **Load remote** |
+| Import | Import |
+| Delete page / clear data / remove library item | destructive label + `danger: true` |
 
-## Local storage keys
+Never hardcode the confirm button as “Delete” for non-delete actions.
 
-Browser localStorage holds pages, library, workspace state, and settings (including remote URL). Clearing local data should not wipe remote URL unless intended.
+## Multi-user / remote sync
+
+- Snapshot only: full `pages`, library, workspace state, metadata.
+- Client `getRemoteUrl()` must **keep a trailing slash** on the API URL.
+- PUT uses `If-Match` when an ETag is known; **412** → load remote, then sync again.
+- Optional poll in Settings can show “Remote update available”.
+
+### Path-prefix deploy (e.g. Caddy)
+
+Example public base: `https://example.com/req-block/`
+
+1. Caddy: `handle_path /req-block/*` → `host:8088` (one upstream for full stack).
+2. App **Remote sync URL** must include prefix **and** trailing slash, e.g. `https://example.com/req-block/api/`.
+3. nginx: `absolute_redirect off`; proxy `/api` and `/api/` with **no** `return 301` to absolute `/api/` (that drops the prefix and breaks PUT).
+4. Prefer **308** over **301** if the reverse proxy normalizes trailing slashes (preserves PUT).
+
+## Local storage
+
+Browser `localStorage`: pages, saved requirements, workspace, piece library, settings (including remote URL). “Clear local data” should not wipe remote URL settings unless intended.
 
 ## When editing the HTML app
 
-- Prefer small, targeted edits; the file is large (~60KB).
-- After deploy behind Docker volume mount, hard-refresh browsers (`Ctrl+Shift+R`).
-- Verify remote save in DevTools Network: expect **200** on `PUT …/api/`, not **301**.
+- Prefer small, targeted edits; file is ~63KB.
+- After Docker volume deploy: hard-refresh (`Ctrl+Shift+R`).
+- Network tab: successful sync is **200** on `PUT …/api/`, not **301**.
+- Large single-file pushes via some agent channels are fragile — prefer the user’s local `git push` for `requirement_scratch.html` when possible.
 
-## Backend validation
+## Backend
 
-PUT body must be JSON object with a `pages` array. Health: `GET /health` → `{"status":"ok"}`.
+- PUT body: JSON object with a `pages` array.
+- Health: `GET /health` → `{"status":"ok"}`.
+- Optional basic auth via env vars (see `backend/README.md`).
+
+## License
+
+Apache-2.0 (see `README.md`). Blockly is Apache-2.0; do not add dependencies with incompatible licenses without updating the README.
 
 ## Do not
 
-- Publish host **8080** for this stack.
-- Rely on absolute nginx redirects behind a path prefix.
+- Bind host port **8080** for this stack.
+- Emit absolute nginx redirects behind a path prefix.
 - Strip trailing slashes from the remote API URL in client code.
-- Assume simultaneous live block editing; design is snapshot-based.
+- Assume live multi-user block editing.
+- Leave confirm buttons labelled “Delete” for load/import/sync flows.
+- Re-add recovery/placeholder HTML or split-upload scripts without a clear need.
