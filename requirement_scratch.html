@@ -1,1 +1,1800 @@
-PLACEHOLDER
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Requirement Scratch – Visual Requirements Builder</title>
+  <script src="https://unpkg.com/blockly@11.2.1/blockly.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #1e293b;
+      --accent: #38bdf8;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --success: #4ade80;
+      --warning: #fbbf24;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    header {
+      background: linear-gradient(90deg, #0c4a6e, #1e3a5f);
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 2px solid var(--accent);
+      flex-shrink: 0;
+    }
+    header h1 {
+      font-size: 1.35rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    header h1 span { color: var(--accent); }
+    .header-actions { display: flex; gap: 10px; align-items: center; }
+    button, .btn {
+      background: var(--accent);
+      color: #0f172a;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: background 0.15s, transform 0.1s;
+    }
+    button:hover, .btn:hover { background: #7dd3fc; transform: translateY(-1px); }
+    button:active { transform: translateY(0); }
+    button.secondary {
+      background: #334155;
+      color: var(--text);
+    }
+    button.secondary:hover { background: #475569; }
+    button.danger { background: #ef4444; color: white; }
+    button.danger:hover { background: #f87171; }
+    .main {
+      flex: 1;
+      display: flex;
+      min-height: 0;
+    }
+    #blocklyArea {
+      flex: 1;
+      position: relative;
+      min-width: 0;
+    }
+    #blocklyDiv {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+    }
+    .sidebar {
+      width: 340px;
+      background: var(--panel);
+      border-left: 1px solid #334155;
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      overflow: hidden;
+      min-height: 0;
+    }
+    .sidebar-section {
+      padding: 14px 16px;
+      border-bottom: 1px solid #334155;
+      min-height: 0;
+    }
+    .sidebar-section h2 {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+    #requirementOutput {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 12px;
+      min-height: 80px;
+      font-size: 1.05rem;
+      line-height: 1.5;
+      color: var(--success);
+      word-wrap: break-word;
+    }
+    #requirementOutput.empty { color: var(--muted); font-style: italic; }
+    .saved-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 0;
+    }
+    .saved-item {
+      background: #0f172a;
+      margin: 6px 12px;
+      padding: 10px 12px;
+      border-radius: 6px;
+      border-left: 3px solid var(--accent);
+      font-size: 0.92rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .saved-item span { flex: 1; }
+    .saved-item button {
+      padding: 4px 8px;
+      font-size: 0.75rem;
+      background: #475569;
+    }
+    .hint {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 8px;
+      line-height: 1.4;
+    }
+    /* Page management */
+    .page-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .page-tab {
+      background: #334155;
+      color: var(--text);
+      border: 1px solid #475569;
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .page-tab:hover { background: #475569; }
+    .page-tab.active {
+      background: var(--accent);
+      color: #0f172a;
+      border-color: var(--accent);
+      font-weight: 600;
+    }
+    .page-actions {
+      display: flex;
+      gap: 6px;
+      margin-left: auto;
+    }
+    .page-actions button {
+      padding: 5px 10px;
+      font-size: 0.8rem;
+    }
+    /* Custom confirmation modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+    }
+    .modal-box {
+      background: #1e293b;
+      border: 1px solid #475569;
+      border-radius: 10px;
+      padding: 24px;
+      max-width: 400px;
+      width: 90%;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    }
+    .modal-box h3 {
+      margin: 0 0 12px 0;
+      font-size: 1.15rem;
+      color: #f87171;
+    }
+    .modal-box p {
+      margin: 0 0 20px 0;
+      color: var(--text);
+      line-height: 1.5;
+      white-space: pre-line;
+    }
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+    .modal-actions button {
+      padding: 8px 16px;
+    }
+    .settings-field {
+      margin-bottom: 14px;
+    }
+    .settings-field label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .settings-field input[type="text"],
+    .settings-field input[type="url"] {
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: 1px solid #475569;
+      background: #0f172a;
+      color: var(--text);
+      font-size: 0.9rem;
+    }
+    .settings-field input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .settings-note {
+      font-size: 0.8rem;
+      color: var(--muted);
+      line-height: 1.45;
+      margin: 8px 0 16px 0;
+      padding: 10px;
+      background: #0f172a;
+      border-radius: 6px;
+      border-left: 3px solid var(--accent);
+    }
+    .settings-actions-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .type-legend {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      font-size: 0.8rem;
+    }
+    .type-swatch {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+    }
+    .swatch.start { background: #4f46e5; }
+    .swatch.capability { background: #0891b2; }
+    .swatch.object { background: #059669; }
+    .swatch.purpose { background: #d97706; }
+    .swatch.condition { background: #dc2626; }
+    .swatch.anyof { background: #c026d3; }
+    .swatch.listitem { background: #e879f9; }
+    .swatch.custom { background: #7c3aed; }
+    /* Custom Blockly theme overrides */
+    .blocklyToolboxDiv {
+      background: #1e293b !important;
+      color: var(--text) !important;
+    }
+    .blocklyTreeLabel { color: var(--text) !important; }
+    .blocklyTreeRow:hover { background: #334155 !important; }
+    .blocklyFlyoutBackground { fill: #1e293b !important; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🧩 <span>Requirement Scratch</span> – Visual Requirements Builder</h1>
+    <div class="header-actions">
+      <button id="btnLegend" class="secondary" title="Show piece type legend and connection rules">ℹ️ Key</button>
+      <button id="btnGenerate" title="Assemble the connected pieces into a full requirement sentence">Generate Requirement</button>
+      <button id="btnSave" class="secondary" title="Save the current requirement to the list">Save</button>
+      <button id="btnAddToLibrary" class="secondary" title="Add the selected piece to the library – it will appear in the same category it came from (e.g. Start/Modal, Object, List item…)">Add Selected to Library</button>
+      <button id="btnClear" class="secondary" title="Clear the workspace">Clear</button>
+      <button id="btnSettings" class="secondary" title="Settings, export / import, multi-user config">⚙️ Settings</button>
+    </div>
+  </header>
+
+  <div class="main">
+    <div id="blocklyArea">
+      <div id="blocklyDiv"></div>
+    </div>
+
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <h2>Assembled Requirement</h2>
+        <div id="requirementOutput" class="empty">Connect pieces on the left, then click “Generate Requirement”.</div>
+        <p class="hint">Only compatible piece types snap together. Edit any piece’s text by clicking it. Click <strong>ℹ️ Key</strong> in the header for the colour legend.</p>
+      </div>
+
+      <div class="sidebar-section" style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
+        <h2>Reusable Library</h2>
+        <div id="libraryList" class="saved-list" style="flex: 1; overflow-y: auto; min-height: 80px;">
+          <p class="hint" style="padding:0 12px;">No reusable pieces yet.</p>
+        </div>
+        <p class="hint" style="margin-top:6px; flex-shrink: 0;">Click ✕ to remove a piece from the library.</p>
+      </div>
+
+      <div class="sidebar-section" style="flex: 1.2; display: flex; flex-direction: column; min-height: 0;">
+        <h2>Pages &amp; Saved Requirements</h2>
+        <div class="page-bar">
+          <div id="pageTabs"></div>
+          <div class="page-actions">
+            <button id="btnAddPage" class="secondary" title="Add a new page">+ Page</button>
+            <button id="btnDeletePage" class="danger" title="Delete the current page">Delete Page</button>
+          </div>
+        </div>
+        <p class="hint" style="margin: 0 0 8px 0; font-size: 0.75rem; flex-shrink: 0;">Double-click a page tab to rename it</p>
+        <div id="savedList" class="saved-list" style="flex: 1; overflow-y: auto; min-height: 60px;">
+          <p class="hint" style="padding:0 12px;">No requirements saved yet on this page.</p>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    // ========== Custom Blocks ==========
+    // Connection type system:
+    //   start     → next accepts "capability"
+    //   capability→ previous "capability", next "object"
+    //   object    → previous "object", next ["purpose","condition"]
+    //   purpose   → previous "purpose"
+    //   condition → previous "condition"
+    //   any_of    → previous "object", next ["purpose","condition"],
+    //               internal statement input accepts only "list_item"
+    //   list_item → previous/next "list_item" (only lives inside any_of)
+    //   custom    → flexible (can be used in several places)
+
+    Blockly.defineBlocksWithJsonArray([
+      // ---- START / MODAL ----
+      {
+        "type": "req_start",
+        "message0": "%1",
+        "args0": [
+          {
+            "type": "field_input",
+            "name": "TEXT",
+            "text": "The system shall"
+          }
+        ],
+        "nextStatement": "capability",
+        "colour": 230,          // indigo-ish
+        "tooltip": "Starting modal phrase (e.g. “The system shall”, “The user must”). Only connects to Capability pieces.",
+        "helpUrl": ""
+      },
+      {
+        "type": "req_start_alt",
+        "message0": "%1",
+        "args0": [
+          {
+            "type": "field_input",
+            "name": "TEXT",
+            "text": "When <event>, the system shall"
+          }
+        ],
+        "nextStatement": "capability",
+        "colour": 230,
+        "tooltip": "Event-driven start (EARS-style).",
+        "helpUrl": ""
+      },
+
+      // ---- CAPABILITY / VERB PHRASE ----
+      {
+        "type": "req_capability",
+        "message0": "%1",
+        "args0": [
+          {
+            "type": "field_input",
+            "name": "TEXT",
+            "text": "provide"
+          }
+        ],
+        "previousStatement": "capability",
+        "nextStatement": "object",
+        "colour": 180,          // cyan
+        "tooltip": "What the system does (verb + high-level capability).",
+        "helpUrl": ""
+      },
+      {
+        "type": "req_capability_2",
+        "message0": "%1",
+        "args0": [
+          {
+            "type": "field_input",
+            "name": "TEXT",
+            "text": "allow the user to"
+          }
+        ],
+        "previousStatement": "capability",
+        "nextStatement": "object",
+        "colour": 180,
+        "tooltip": "Capability phrasing focused on user action.",
+        "helpUrl": ""
+      },
+
+      // ---- OBJECT ----
+      {
+        "type": "req_object",
+        "message0": "%1",
+        "args0": [
+          {
+            "type": "field_input",
+            "name": "TEXT",
+            "text": "a function"
+          }
+        ],
+        "previousStatement": "object",
+        "nextStatement": ["purpose", "condition"],
+        "colour": 160,          // green
+        "tooltip": "The thing being acted upon or produced.",
+        "helpUrl": ""
+      },
+      {
+        "type": "req_object_2",
+        "message0": "%1",
+        "args0": [
+          {
+            "type": "field_input",
+            "name": "TEXT",
+            "text": "the current inventory status"
+          }
+        ],
+        "previousStatement": "object",
+        "nextStatement": ["purpose", "condition"],
+        "colour": 160,
+        "tooltip": "More specific object example.",
+        "helpUrl": ""
+      },
+
+      // ---- PURPOSE ----
+      {
+        "type": "req_purpose",
+        "message0": "%1",
+        "args0": [
+          {
+            "type": "field_input",
+            "name": "TEXT",
+            "text": "to produce a report"
+          }
+        ],
+        "previousStatement": "purpose",
+        "colour": 40,           // amber
+        "tooltip": "Why / for what purpose (often starts with “to …”). Optional end piece.",
+        "helpUrl": ""
+      },
+      {
+        "type": "req_purpose_2",
+        "message0": "%1",
+        "args0": [
+          {
+            "type": "field_input",
+            "name": "TEXT",
+            "text": "so that managers can make decisions"
+          }
+        ],
+        "previousStatement": "purpose",
+        "colour": 40,
+        "tooltip": "Purpose / outcome phrasing.",
+        "helpUrl": ""
+      },
+
+      // ---- CONDITION ----
+      {
+        "type": "req_condition",
+        "message0": "%1",
+        "args0": [
+          {
+            "type": "field_input",
+            "name": "TEXT",
+            "text": "if the user is authenticated"
+          }
+        ],
+        "previousStatement": "condition",
+        "colour": 0,            // red
+        "tooltip": "Conditional constraint (if / while / unless …). Optional end piece.",
+        "helpUrl": ""
+      },
+      {
+        "type": "req_condition_2",
+        "message0": "%1",
+        "args0": [
+          {
+            "type": "field_input",
+            "name": "TEXT",
+            "text": "while the system is in maintenance mode"
+          }
+        ],
+        "previousStatement": "condition",
+        "colour": 0,
+        "tooltip": "State-driven condition.",
+        "helpUrl": ""
+      },
+
+      // ---- ANY OF / LIST ----
+      {
+        "type": "req_any_of",
+        "message0": "%1",
+        "args0": [
+          {
+            "type": "field_input",
+            "name": "TEXT",
+            "text": "any of the following"
+          }
+        ],
+        "message1": "%1",
+        "args1": [
+          {
+            "type": "input_statement",
+            "name": "ITEMS",
+            "check": "list_item"
+          }
+        ],
+        "previousStatement": "object",
+        "nextStatement": ["purpose", "condition"],
+        "colour": 300,          // magenta / fuchsia
+        "tooltip": "Introduces a list of discrete alternatives. The lead-in text is editable. Drag List-item pieces inside the C-shaped slot.",
+        "helpUrl": ""
+      },
+      {
+        "type": "req_list_item",
+        "message0": "• %1",
+        "args0": [
+          {
+            "type": "field_input",
+            "name": "TEXT",
+            "text": "option A"
+          }
+        ],
+        "previousStatement": "list_item",
+        "nextStatement": "list_item",
+        "colour": 320,          // lighter magenta
+        "tooltip": "A single discrete alternative. Only snaps inside an “any of the following” block.",
+        "helpUrl": ""
+      },
+
+      // ---- CUSTOM (flexible) ----
+      {
+        "type": "req_custom",
+        "message0": "🔧 %1",
+        "args0": [
+          {
+            "type": "field_input",
+            "name": "TEXT",
+            "text": "custom phrase…"
+          }
+        ],
+        "previousStatement": ["capability", "object", "purpose", "condition"],
+        "nextStatement": ["capability", "object", "purpose", "condition"],
+        "colour": 260,          // purple
+        "tooltip": "User-defined free-form piece. Can connect in most places (less strict).",
+        "helpUrl": ""
+      }
+    ]);
+
+    // ========== Toolbox ==========
+    const toolbox = {
+      "kind": "categoryToolbox",
+      "contents": [
+        {
+          "kind": "category",
+          "name": "Start / Modal",
+          "colour": "230",
+          "contents": [
+            { "kind": "block", "type": "req_start" },
+            { "kind": "block", "type": "req_start_alt" }
+          ]
+        },
+        {
+          "kind": "category",
+          "name": "Capability",
+          "colour": "180",
+          "contents": [
+            { "kind": "block", "type": "req_capability" },
+            { "kind": "block", "type": "req_capability_2" }
+          ]
+        },
+        {
+          "kind": "category",
+          "name": "Object",
+          "colour": "160",
+          "contents": [
+            { "kind": "block", "type": "req_object" },
+            { "kind": "block", "type": "req_object_2" }
+          ]
+        },
+        {
+          "kind": "category",
+          "name": "Purpose",
+          "colour": "40",
+          "contents": [
+            { "kind": "block", "type": "req_purpose" },
+            { "kind": "block", "type": "req_purpose_2" }
+          ]
+        },
+        {
+          "kind": "category",
+          "name": "Condition",
+          "colour": "0",
+          "contents": [
+            { "kind": "block", "type": "req_condition" },
+            { "kind": "block", "type": "req_condition_2" }
+          ]
+        },
+        {
+          "kind": "category",
+          "name": "Any of / List",
+          "colour": "300",
+          "contents": [
+            { "kind": "block", "type": "req_any_of" },
+            { "kind": "block", "type": "req_list_item" }
+          ]
+        },
+        {
+          "kind": "category",
+          "name": "Reusable Pieces",
+          "colour": "320",
+          "contents": []   // populated dynamically from pieceLibrary
+        },
+        {
+          "kind": "category",
+          "name": "Custom",
+          "colour": "260",
+          "contents": [
+            { "kind": "block", "type": "req_custom" }
+          ]
+        }
+      ]
+    };
+
+    // ========== Reusable Piece Library ==========
+    // Seeded with the pieces from the user-modified test / example.
+    // Each entry keeps its original type so it appears in the correct category.
+    let pieceLibrary = [
+      { type: 'req_list_item', text: 'PDF report' },
+      { type: 'req_list_item', text: 'Word report' },
+      { type: 'req_list_item', text: 'CSV' }
+    ];
+
+    // Map block types → toolbox category name
+    const typeToCategory = {
+      'req_start':       'Start / Modal',
+      'req_start_alt':   'Start / Modal',
+      'req_capability':  'Capability',
+      'req_capability_2':'Capability',
+      'req_object':      'Object',
+      'req_object_2':    'Object',
+      'req_purpose':     'Purpose',
+      'req_purpose_2':   'Purpose',
+      'req_condition':   'Condition',
+      'req_condition_2': 'Condition',
+      'req_any_of':      'Any of / List',
+      'req_list_item':   'Any of / List',
+      'req_custom':      'Custom'
+    };
+
+    function buildToolbox() {
+      // Deep-ish copy of the static toolbox structure
+      const tb = JSON.parse(JSON.stringify(toolbox));
+
+      // Group library items by the category they belong to
+      const byCategory = {};
+      for (const p of pieceLibrary) {
+        const catName = typeToCategory[p.type] || 'Custom';
+        if (!byCategory[catName]) byCategory[catName] = [];
+        byCategory[catName].push({
+          kind: 'block',
+          type: p.type,
+          fields: { TEXT: p.text }
+        });
+      }
+
+      // Append matching library items to each category (after the built-in templates)
+      for (const cat of tb.contents) {
+        if (cat.name === 'Reusable Pieces') {
+          // "All" view – show every library item
+          cat.contents = pieceLibrary.map(p => ({
+            kind: 'block',
+            type: p.type,
+            fields: { TEXT: p.text }
+          }));
+        } else if (byCategory[cat.name]) {
+          // Append the reusable pieces that originated from this category
+          cat.contents = cat.contents.concat(byCategory[cat.name]);
+        }
+      }
+      return tb;
+    }
+
+    // ========== Workspace ==========
+    const workspace = Blockly.inject('blocklyDiv', {
+      toolbox: buildToolbox(),
+      media: 'https://unpkg.com/blockly@11.2.1/media/',
+      grid: {
+        spacing: 20,
+        length: 3,
+        colour: '#334155',
+        snap: true
+      },
+      zoom: {
+        controls: true,
+        wheel: true,
+        startScale: 1.0,
+        maxScale: 2,
+        minScale: 0.4,
+        scaleSpeed: 1.2
+      },
+      trashcan: true,
+      move: {
+        scrollbars: true,
+        drag: true,
+        wheel: true
+      },
+      renderer: 'geras',
+      theme: Blockly.Theme.defineTheme('darkish', {
+        'base': Blockly.Themes.Classic,
+        'componentStyles': {
+          'workspaceBackgroundColour': '#0f172a',
+          'toolboxBackgroundColour': '#1e293b',
+          'toolboxForegroundColour': '#e2e8f0',
+          'flyoutBackgroundColour': '#1e293b',
+          'flyoutForegroundColour': '#e2e8f0',
+          'flyoutOpacity': 0.95,
+          'scrollbarColour': '#475569',
+          'insertionMarkerColour': '#38bdf8',
+          'insertionMarkerOpacity': 0.4,
+          'scrollbarOpacity': 0.5,
+          'cursorColour': '#38bdf8'
+        }
+      })
+    });
+
+    // ========== Generate full requirement text ==========
+    function collectListItems(anyOfBlock) {
+      const items = [];
+      let item = anyOfBlock.getInputTargetBlock('ITEMS');
+      while (item) {
+        const t = item.getFieldValue('TEXT');
+        if (t && t.trim()) {
+          items.push(t.trim());
+        }
+        item = item.getNextBlock();
+      }
+      return items;
+    }
+
+    function formatList(leadIn, items) {
+      const prefix = (leadIn && leadIn.trim()) ? leadIn.trim() : 'any of the following';
+      if (items.length === 0) return prefix + ' (none specified)';
+      if (items.length === 1) return prefix + ': ' + items[0];
+      if (items.length === 2) return prefix + ': ' + items[0] + ' or ' + items[1];
+      // 3+: "A, B, or C"
+      const last = items.pop();
+      return prefix + ': ' + items.join(', ') + ', or ' + last;
+    }
+
+    function getConnectedText() {
+      const topBlocks = workspace.getTopBlocks(true);
+      // Prefer the first chain that starts with a start-type block
+      let chain = null;
+      for (const b of topBlocks) {
+        if (b.type === 'req_start' || b.type === 'req_start_alt') {
+          chain = b;
+          break;
+        }
+      }
+      if (!chain && topBlocks.length > 0) {
+        chain = topBlocks[0]; // fallback: any top block
+      }
+      if (!chain) return null;
+
+      const parts = [];
+      let current = chain;
+      while (current) {
+        if (current.type === 'req_any_of') {
+          const items = collectListItems(current);
+          const leadIn = current.getFieldValue('TEXT');
+          parts.push(formatList(leadIn, items));
+        } else {
+          const text = current.getFieldValue('TEXT');
+          if (text && text.trim()) {
+            parts.push(text.trim());
+          }
+        }
+        current = current.getNextBlock();
+      }
+      if (parts.length === 0) return null;
+
+      // Simple joining: capitalize first letter of whole sentence, ensure ends with period
+      let sentence = parts.join(' ');
+      sentence = sentence.charAt(0).toUpperCase() + sentence.slice(1);
+      if (!/[.!?]$/.test(sentence)) {
+        sentence += '.';
+      }
+      return sentence;
+    }
+
+    function updateOutput() {
+      const text = getConnectedText();
+      const el = document.getElementById('requirementOutput');
+      if (text) {
+        el.textContent = text;
+        el.classList.remove('empty');
+      } else {
+        el.textContent = 'Connect pieces on the left, then click “Generate Requirement”.';
+        el.classList.add('empty');
+      }
+    }
+
+    document.getElementById('btnGenerate').addEventListener('click', updateOutput);
+
+    // Also update live when blocks change (nice UX)
+    workspace.addChangeListener(function(e) {
+      if (e.type === Blockly.Events.BLOCK_CHANGE ||
+          e.type === Blockly.Events.BLOCK_MOVE ||
+          e.type === Blockly.Events.BLOCK_CREATE ||
+          e.type === Blockly.Events.BLOCK_DELETE) {
+        // Debounce a little
+        clearTimeout(window._reqUpdateTimer);
+        window._reqUpdateTimer = setTimeout(updateOutput, 200);
+      }
+    });
+
+    // ========== Local Storage Persistence ==========
+    const STORAGE_KEY = 'requirementScratch_v1';
+    const SETTINGS_KEY = 'requirementScratch_settings_v1';
+
+    // Multi-user / remote config (stored separately so export can choose)
+    // Sync model: shared JSON snapshot (pages, library, saved requirements).
+    // Blockly blocks are included on save/load but NOT live-synced while editing.
+    let appSettings = {
+      remoteUrl: '',          // GET/PUT JSON snapshot endpoint (CORS required)
+      remoteUser: '',
+      pollIntervalSec: 0,     // 0 = off; e.g. 30 = check remote every 30s
+      lastRemoteEtag: '',
+      lastRemoteSavedAt: '',
+      lastRemoteSavedBy: ''
+    };
+    let _pollTimer = null;
+
+    function loadSettings() {
+      try {
+        const raw = localStorage.getItem(SETTINGS_KEY);
+        if (raw) {
+          const s = JSON.parse(raw);
+          appSettings = { ...appSettings, ...s };
+        }
+      } catch (e) { /* ignore */ }
+    }
+
+    function saveSettings() {
+      try {
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(appSettings));
+      } catch (e) {
+        console.warn('Could not save settings', e);
+      }
+    }
+
+    function getSnapshot() {
+      try {
+        if (typeof saveCurrentWorkspaceState === 'function') {
+          saveCurrentWorkspaceState();
+        }
+      } catch (e) {
+        console.warn('Could not snapshot current workspace', e);
+      }
+
+      let safePages;
+      let safeLibrary;
+      try {
+        safePages = JSON.parse(JSON.stringify(pages));
+        safeLibrary = JSON.parse(JSON.stringify(pieceLibrary));
+      } catch (e) {
+        // Fallback: export without Blockly workspace graphics if state is not serializable
+        console.warn('Full page state not serializable, exporting without workspace blocks', e);
+        safePages = pages.map(p => ({
+          id: p.id,
+          name: p.name,
+          savedRequirements: Array.isArray(p.savedRequirements) ? p.savedRequirements.slice() : [],
+          workspaceState: null
+        }));
+        safeLibrary = (pieceLibrary || []).map(p => ({ type: p.type, text: p.text }));
+      }
+
+      return {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        pages: safePages,
+        currentPageId,
+        nextPageId,
+        pieceLibrary: safeLibrary
+      };
+    }
+
+    function applySnapshot(data) {
+      if (!data || !Array.isArray(data.pages) || data.pages.length === 0) {
+        throw new Error('Invalid snapshot: missing pages');
+      }
+      pages = data.pages;
+      currentPageId = data.currentPageId || pages[0].id;
+      nextPageId = data.nextPageId || (Math.max(...pages.map(p => p.id)) + 1);
+      if (Array.isArray(data.pieceLibrary)) {
+        pieceLibrary = data.pieceLibrary;
+      }
+      refreshToolbox();
+      const page = getCurrentPage();
+      loadWorkspaceState(page ? page.workspaceState : null);
+      renderPageTabs();
+      renderSaved();
+      renderLibrary();
+      persist();
+    }
+
+    function persist() {
+      try {
+        // Always capture the latest workspace of the current page before saving
+        if (typeof saveCurrentWorkspaceState === 'function') {
+          saveCurrentWorkspaceState();
+        }
+        const data = {
+          pages,
+          currentPageId,
+          nextPageId,
+          pieceLibrary
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      } catch (e) {
+        console.warn('Could not save to localStorage', e);
+      }
+    }
+
+    function loadFromStorage() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return false;
+        const data = JSON.parse(raw);
+        if (!data || !Array.isArray(data.pages) || data.pages.length === 0) return false;
+
+        pages = data.pages;
+        currentPageId = data.currentPageId || pages[0].id;
+        nextPageId = data.nextPageId || (Math.max(...pages.map(p => p.id)) + 1);
+        if (Array.isArray(data.pieceLibrary) && data.pieceLibrary.length > 0) {
+          pieceLibrary = data.pieceLibrary;
+        }
+        return true;
+      } catch (e) {
+        console.warn('Could not load from localStorage', e);
+        return false;
+      }
+    }
+
+    loadSettings();
+
+    // ========== Remote snapshot sync (multi-user, no live blocks) ==========
+    function getRemoteUrl() {
+      // Keep a trailing slash. Stripping it causes 301 /api → /api/ redirects;
+      // browsers then fail PUT/POST with "Failed to fetch".
+      let url = (appSettings.remoteUrl || '').trim();
+      if (!url) return '';
+      if (!url.endsWith('/')) url += '/';
+      return url;
+    }
+
+    async function remoteLoad(options) {
+      const opts = options || {};
+      const url = getRemoteUrl();
+      if (!url) throw new Error('Set a Remote sync URL in Settings first.');
+
+      let res;
+      try {
+        res = await fetch(url, {
+          method: 'GET',
+          headers: { 'Accept': 'application/json' },
+          cache: 'no-store'
+        });
+      } catch (netErr) {
+        throw new Error('Network error loading from:\n' + url + '\n\n' + (netErr.message || netErr) +
+          '\n\nCheck Remote URL, Caddy path (/req-block/api/), and that Docker is up on :8088.');
+      }
+      if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        throw new Error('Remote GET failed: HTTP ' + res.status + '\nURL: ' + url +
+          (body ? '\nBody: ' + body.slice(0, 200) : ''));
+      }
+
+      const etag = res.headers.get('ETag') || '';
+      const data = await res.json();
+      if (!data || !Array.isArray(data.pages)) {
+        throw new Error('Remote response is not a valid Requirement Scratch snapshot.');
+      }
+
+      if (!opts.silent) {
+        applySnapshot(data);
+      }
+      appSettings.lastRemoteEtag = etag;
+      appSettings.lastRemoteSavedAt = data.exportedAt || data.savedAt || new Date().toISOString();
+      appSettings.lastRemoteSavedBy = data.savedBy || '';
+      saveSettings();
+      return data;
+    }
+
+    async function remoteSave() {
+      const url = getRemoteUrl();
+      if (!url) throw new Error('Set a Remote sync URL in Settings first.');
+
+      const snapshot = getSnapshot();
+      snapshot.savedBy = appSettings.remoteUser || 'anonymous';
+      snapshot.savedAt = new Date().toISOString();
+      snapshot.exportedAt = snapshot.savedAt;
+
+      const headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      };
+      if (appSettings.lastRemoteEtag) {
+        headers['If-Match'] = appSettings.lastRemoteEtag;
+      }
+
+      let res;
+      try {
+        res = await fetch(url, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify(snapshot)
+        });
+      } catch (netErr) {
+        throw new Error('Network error saving to:\n' + url + '\n\n' + (netErr.message || netErr) +
+          '\n\nCheck Remote URL is https://YOUR_HOST/req-block/api/\nand docker compose is up (UI:8088).');
+      }
+
+      // Some simple hosts only allow POST
+      if (res.status === 405 || res.status === 404) {
+        const res2 = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify(snapshot)
+        });
+        if (!res2.ok) {
+          const body = await res2.text().catch(() => '');
+          throw new Error('Remote save failed: HTTP ' + res2.status + '\nURL: ' + url +
+            (body ? '\nBody: ' + body.slice(0, 200) : ''));
+        }
+        const etag2 = res2.headers.get('ETag') || '';
+        if (etag2) appSettings.lastRemoteEtag = etag2;
+      } else if (res.status === 412) {
+        throw new Error('Remote was modified by someone else (conflict). Load from remote first, then save again.');
+      } else if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        throw new Error('Remote save failed: HTTP ' + res.status + '\nURL: ' + url +
+          (body ? '\nBody: ' + body.slice(0, 200) : ''));
+      } else {
+        const etag = res.headers.get('ETag') || '';
+        if (etag) appSettings.lastRemoteEtag = etag;
+      }
+
+      appSettings.lastRemoteSavedAt = snapshot.savedAt;
+      appSettings.lastRemoteSavedBy = snapshot.savedBy;
+      saveSettings();
+      persist();
+      return snapshot;
+    }
+
+    async function checkRemoteNewer() {
+      const url = getRemoteUrl();
+      if (!url || !appSettings.pollIntervalSec) return;
+
+      try {
+        const res = await fetch(url, {
+          method: 'GET',
+          headers: { 'Accept': 'application/json' },
+          cache: 'no-store'
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const remoteAt = data.savedAt || data.exportedAt || '';
+        const localAt = appSettings.lastRemoteSavedAt || '';
+        if (remoteAt && remoteAt !== localAt) {
+          const who = data.savedBy ? (' by ' + data.savedBy) : '';
+          const ok = await showConfirmModal(
+            'Remote update available',
+            'The shared project was updated' + who + '.\n\nLoad the remote version now?\n(Your current unsaved block layout on this page may be replaced.)',
+            { confirmLabel: 'Load remote' }
+          );
+          if (ok) {
+            applySnapshot(data);
+            appSettings.lastRemoteEtag = res.headers.get('ETag') || appSettings.lastRemoteEtag;
+            appSettings.lastRemoteSavedAt = remoteAt;
+            appSettings.lastRemoteSavedBy = data.savedBy || '';
+            saveSettings();
+          } else {
+            // Remember we saw it so we don't spam; user can Load manually
+            appSettings.lastRemoteSavedAt = remoteAt;
+            saveSettings();
+          }
+        }
+      } catch (e) {
+        console.warn('Remote poll failed', e);
+      }
+    }
+
+    function restartPolling() {
+      if (_pollTimer) {
+        clearInterval(_pollTimer);
+        _pollTimer = null;
+      }
+      const sec = parseInt(appSettings.pollIntervalSec, 10) || 0;
+      if (sec > 0 && getRemoteUrl()) {
+        _pollTimer = setInterval(checkRemoteNewer, sec * 1000);
+      }
+    }
+
+    restartPolling();
+
+    // ========== Multi-page support ==========
+    // Each page has its own saved requirements + Blockly workspace state
+    let pages = [
+      {
+        id: 1,
+        name: 'Page 1',
+        savedRequirements: [],
+        workspaceState: null
+      }
+    ];
+    let currentPageId = 1;
+    let nextPageId = 2;
+
+    function getCurrentPage() {
+      return pages.find(p => p.id === currentPageId);
+    }
+
+    function saveCurrentWorkspaceState() {
+      const page = getCurrentPage();
+      if (!page) return;
+      try {
+        page.workspaceState = Blockly.serialization.workspaces.save(workspace);
+      } catch (e) {
+        console.warn('Could not save workspace state', e);
+        page.workspaceState = null;
+      }
+    }
+
+    function loadWorkspaceState(state) {
+      workspace.clear();
+      if (state) {
+        try {
+          Blockly.serialization.workspaces.load(state, workspace);
+        } catch (e) {
+          console.warn('Could not load workspace state', e);
+        }
+      }
+      updateOutput();
+    }
+
+    function renderPageTabs() {
+      const container = document.getElementById('pageTabs');
+      container.innerHTML = pages.map(p => `
+        <button class="page-tab ${p.id === currentPageId ? 'active' : ''}"
+                data-page-id="${p.id}"
+                title="Click to switch • Double-click to rename">
+          ${p.name}
+        </button>
+      `).join('');
+
+      // Attach click + double-click handlers
+      container.querySelectorAll('.page-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = parseInt(btn.getAttribute('data-page-id'), 10);
+          switchToPage(id);
+        });
+
+        // Double-click to rename
+        btn.addEventListener('dblclick', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          startRenamePage(btn);
+        });
+      });
+
+      // Enable / disable Delete Page button
+      const delBtn = document.getElementById('btnDeletePage');
+      if (pages.length <= 1) {
+        delBtn.disabled = true;
+        delBtn.title = 'You cannot delete the last remaining page';
+        delBtn.style.opacity = '0.5';
+        delBtn.style.cursor = 'not-allowed';
+      } else {
+        delBtn.disabled = false;
+        delBtn.title = 'Delete the current page';
+        delBtn.style.opacity = '1';
+        delBtn.style.cursor = 'pointer';
+      }
+    }
+
+    function startRenamePage(tabButton) {
+      const pageId = parseInt(tabButton.getAttribute('data-page-id'), 10);
+      const page = pages.find(p => p.id === pageId);
+      if (!page) return;
+
+      const currentName = page.name;
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = currentName;
+      input.className = 'page-tab-rename';
+      input.style.cssText = `
+        background: #0f172a;
+        color: var(--text);
+        border: 2px solid var(--accent);
+        border-radius: 6px;
+        padding: 4px 8px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        width: ${Math.max(80, currentName.length * 9)}px;
+        outline: none;
+      `;
+
+      // Replace the button with the input
+      tabButton.replaceWith(input);
+      input.focus();
+      input.select();
+
+      const finishRename = (save) => {
+        if (save) {
+          const newName = input.value.trim();
+          if (newName && newName !== currentName) {
+            page.name = newName;
+            persist();
+          }
+        }
+        renderPageTabs(); // re-render to restore buttons
+      };
+
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          finishRename(true);
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          finishRename(false);
+        }
+      });
+
+      input.addEventListener('blur', () => finishRename(true));
+    }
+
+    function renderSaved() {
+      const page = getCurrentPage();
+      const list = document.getElementById('savedList');
+      if (!page || page.savedRequirements.length === 0) {
+        list.innerHTML = '<p class="hint" style="padding:0 12px;">No requirements saved yet on this page.</p>';
+        return;
+      }
+      list.innerHTML = page.savedRequirements.map((req, idx) => `
+        <div class="saved-item">
+          <span>${req}</span>
+          <button onclick="deleteSaved(${idx})" title="Delete this requirement">✕</button>
+        </div>
+      `).join('');
+    }
+
+    window.deleteSaved = function(idx) {
+      const page = getCurrentPage();
+      if (!page) return;
+      page.savedRequirements.splice(idx, 1);
+      renderSaved();
+      persist();
+    };
+
+    function switchToPage(pageId) {
+      if (pageId === currentPageId) return;
+      // Save current page state
+      saveCurrentWorkspaceState();
+      // Switch
+      currentPageId = pageId;
+      const page = getCurrentPage();
+      // Load new page
+      loadWorkspaceState(page ? page.workspaceState : null);
+      renderPageTabs();
+      renderSaved();
+      persist();
+    }
+
+    function addPage() {
+      saveCurrentWorkspaceState(); // preserve current
+      const newPage = {
+        id: nextPageId++,
+        name: `Page ${pages.length + 1}`,
+        savedRequirements: [],
+        workspaceState: null
+      };
+      pages.push(newPage);
+      currentPageId = newPage.id;
+      workspace.clear();
+      updateOutput();
+      renderPageTabs();
+      renderSaved();
+      persist();
+    }
+
+    function showConfirmModal(title, message, options) {
+      const opts = options || {};
+      const confirmLabel = opts.confirmLabel || 'OK';
+      const confirmClass = opts.danger ? 'danger' : '';
+      const titleColor = opts.danger ? '#f87171' : 'var(--accent)';
+
+      return new Promise((resolve) => {
+        // Remove any existing modal
+        const existing = document.querySelector('.modal-overlay');
+        if (existing) existing.remove();
+
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `
+          <div class="modal-box">
+            <h3 style="color: ${titleColor};">${title}</h3>
+            <p>${message}</p>
+            <div class="modal-actions">
+              <button class="secondary" id="modalCancel">Cancel</button>
+              <button class="${confirmClass}" id="modalConfirm">${confirmLabel}</button>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(overlay);
+
+        const cleanup = (result) => {
+          overlay.remove();
+          resolve(result);
+        };
+
+        overlay.querySelector('#modalConfirm').onclick = () => cleanup(true);
+        overlay.querySelector('#modalCancel').onclick = () => cleanup(false);
+        // Click outside to cancel
+        overlay.addEventListener('click', (e) => {
+          if (e.target === overlay) cleanup(false);
+        });
+      });
+    }
+
+    async function deleteCurrentPage() {
+      if (pages.length <= 1) {
+        alert('You cannot delete the last remaining page.\n\nAdd another page first if you want to remove this one.');
+        return;
+      }
+      const page = getCurrentPage();
+      if (!page) return;
+
+      const message =
+        `This will permanently remove “${page.name}” and all ${page.savedRequirements.length} saved requirement(s) on it.\n\nThis cannot be undone.`;
+
+      const confirmed = await showConfirmModal('Delete Page?', message, {
+        confirmLabel: 'Delete page',
+        danger: true
+      });
+      if (!confirmed) return;
+
+      const idx = pages.findIndex(p => p.id === currentPageId);
+      if (idx === -1) return;
+
+      pages.splice(idx, 1);
+
+      // Switch to a remaining page (prefer the one before, otherwise the first)
+      const newIdx = Math.min(idx, pages.length - 1);
+      currentPageId = pages[newIdx].id;
+      const newPage = getCurrentPage();
+      loadWorkspaceState(newPage ? newPage.workspaceState : null);
+      renderPageTabs();
+      renderSaved();
+      persist();
+    }
+
+    // Wire up page buttons
+    document.getElementById('btnAddPage').addEventListener('click', addPage);
+    document.getElementById('btnDeletePage').addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      deleteCurrentPage();
+    });
+
+    // ========== Settings popup (export / import / multi-user config) ==========
+    document.getElementById('btnSettings').addEventListener('click', () => {
+      const existing = document.querySelector('.modal-overlay');
+      if (existing) existing.remove();
+
+      const overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+      const lastSync = appSettings.lastRemoteSavedAt
+        ? `Last remote: ${appSettings.lastRemoteSavedAt}${appSettings.lastRemoteSavedBy ? ' by ' + appSettings.lastRemoteSavedBy : ''}`
+        : 'Not synced yet.';
+
+      overlay.innerHTML = `
+        <div class="modal-box" style="max-width: 540px;">
+          <h3 style="color: var(--accent);">Settings &amp; multi-user sync</h3>
+
+          <div class="settings-note">
+            <strong>Local storage</strong> keeps work in this browser.<br>
+            <strong>Remote sync</strong> shares one JSON snapshot (pages, saved requirements, library).
+            Blockly blocks are saved on Load/Save but are <em>not</em> live-updated while editing.<br>
+            The remote URL must allow CORS and accept GET + PUT (or POST) of JSON.
+          </div>
+
+          <div class="settings-field">
+            <label>Remote sync URL</label>
+            <input type="url" id="settingsRemoteUrl" placeholder="https://example.com/api/requirements.json" value="${(appSettings.remoteUrl || '').replace(/"/g, '&quot;')}">
+          </div>
+          <div class="settings-field">
+            <label>Your name (shown on remote saves)</label>
+            <input type="text" id="settingsRemoteUser" placeholder="your.name" value="${(appSettings.remoteUser || '').replace(/"/g, '&quot;')}">
+          </div>
+          <div class="settings-field">
+            <label>Check remote every (seconds, 0 = off)</label>
+            <input type="text" id="settingsPollSec" placeholder="0" value="${appSettings.pollIntervalSec || 0}">
+          </div>
+          <p class="hint" style="margin: 0 0 12px 0;">${lastSync}</p>
+
+          <div class="settings-actions-row">
+            <button id="btnRemoteLoad" class="secondary">Load from remote</button>
+            <button id="btnRemoteSave">Save to remote</button>
+          </div>
+          <div class="settings-actions-row">
+            <button id="btnExportData" class="secondary">Export JSON</button>
+            <button id="btnImportData" class="secondary">Import JSON</button>
+            <button id="btnClearAllData" class="danger">Clear local data</button>
+          </div>
+          <input type="file" id="importFileInput" accept=".json,application/json" style="display:none">
+
+          <div class="modal-actions">
+            <button class="secondary" id="modalSettingsCancel">Cancel</button>
+            <button id="modalSettingsSave">Save settings</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+
+      const close = () => overlay.remove();
+      overlay.querySelector('#modalSettingsCancel').onclick = close;
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+
+      overlay.querySelector('#modalSettingsSave').onclick = () => {
+        appSettings.remoteUrl = overlay.querySelector('#settingsRemoteUrl').value.trim();
+        appSettings.remoteUser = overlay.querySelector('#settingsRemoteUser').value.trim();
+        appSettings.pollIntervalSec = parseInt(overlay.querySelector('#settingsPollSec').value, 10) || 0;
+        saveSettings();
+        restartPolling();
+        close();
+      };
+
+      overlay.querySelector('#btnRemoteLoad').onclick = async () => {
+        try {
+          // Pull latest settings fields first
+          appSettings.remoteUrl = overlay.querySelector('#settingsRemoteUrl').value.trim();
+          appSettings.remoteUser = overlay.querySelector('#settingsRemoteUser').value.trim();
+          saveSettings();
+          await remoteLoad();
+          alert('Loaded from remote successfully.');
+          close();
+        } catch (err) {
+          alert('Load from remote failed:\n' + (err.message || err));
+        }
+      };
+
+      overlay.querySelector('#btnRemoteSave').onclick = async () => {
+        try {
+          appSettings.remoteUrl = overlay.querySelector('#settingsRemoteUrl').value.trim();
+          appSettings.remoteUser = overlay.querySelector('#settingsRemoteUser').value.trim();
+          saveSettings();
+          await remoteSave();
+          alert('Saved to remote successfully.');
+        } catch (err) {
+          alert('Save to remote failed:\n' + (err.message || err));
+        }
+      };
+
+      overlay.querySelector('#btnExportData').onclick = () => {
+        try {
+          const snapshot = getSnapshot();
+          const json = JSON.stringify(snapshot, null, 2);
+          const blob = new Blob([json], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'requirement-scratch-' + new Date().toISOString().slice(0, 10) + '.json';
+          a.style.display = 'none';
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          }, 200);
+        } catch (err) {
+          console.error('Export failed', err);
+          alert('Export failed: ' + (err.message || err));
+        }
+      };
+
+      overlay.querySelector('#btnImportData').onclick = () => {
+        overlay.querySelector('#importFileInput').click();
+      };
+
+      overlay.querySelector('#importFileInput').onchange = async (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        try {
+          const text = await file.text();
+          const data = JSON.parse(text);
+          const ok = await showConfirmModal(
+            'Import data?',
+            'This will replace all pages, saved requirements, and the library in this browser with the imported file.\n\nContinue?',
+            { confirmLabel: 'Import' }
+          );
+          if (!ok) return;
+          applySnapshot(data);
+          close();
+          alert('Import successful.');
+        } catch (err) {
+          alert('Import failed: ' + (err.message || err));
+        }
+      };
+
+      overlay.querySelector('#btnClearAllData').onclick = async () => {
+        const ok = await showConfirmModal(
+          'Clear all local data?',
+          'This removes all pages, requirements, workspace blocks, and the library from this browser.\n\nSettings (remote URL) are kept. This cannot be undone.',
+          { confirmLabel: 'Clear data', danger: true }
+        );
+        if (!ok) return;
+        localStorage.removeItem(STORAGE_KEY);
+        pages = [{ id: 1, name: 'Page 1', savedRequirements: [], workspaceState: null }];
+        currentPageId = 1;
+        nextPageId = 2;
+        pieceLibrary = [
+          { type: 'req_list_item', text: 'PDF report' },
+          { type: 'req_list_item', text: 'Word report' },
+          { type: 'req_list_item', text: 'CSV' }
+        ];
+        workspace.clear();
+        updateOutput();
+        refreshToolbox();
+        renderPageTabs();
+        renderSaved();
+        renderLibrary();
+        persist();
+        close();
+      };
+    });
+
+    // Legend / Key popup
+    document.getElementById('btnLegend').addEventListener('click', () => {
+      const existing = document.querySelector('.modal-overlay');
+      if (existing) existing.remove();
+
+      const overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+      overlay.innerHTML = `
+        <div class="modal-box" style="max-width: 480px;">
+          <h3 style="color: var(--accent);">Piece Type Key</h3>
+          <div class="type-legend" style="margin: 12px 0 16px 0;">
+            <div class="type-swatch"><span class="swatch start"></span> Start / Modal</div>
+            <div class="type-swatch"><span class="swatch capability"></span> Capability</div>
+            <div class="type-swatch"><span class="swatch object"></span> Object</div>
+            <div class="type-swatch"><span class="swatch purpose"></span> Purpose</div>
+            <div class="type-swatch"><span class="swatch condition"></span> Condition</div>
+            <div class="type-swatch"><span class="swatch anyof"></span> Any of (list)</div>
+            <div class="type-swatch"><span class="swatch listitem"></span> List item</div>
+            <div class="type-swatch"><span class="swatch custom"></span> Custom</div>
+          </div>
+          <p style="color: var(--text); font-size: 0.9rem; line-height: 1.5; margin-bottom: 8px;">
+            <strong>Connection order:</strong> Start → Capability → Object → Purpose / Condition
+          </p>
+          <p style="color: var(--muted); font-size: 0.85rem; line-height: 1.45; margin-bottom: 16px;">
+            Use “Any of the following” for alternative lists. Edited pieces can be added to the library (header button) and reappear in the <strong>same category</strong> they came from.
+          </p>
+          <div class="modal-actions">
+            <button class="secondary" id="modalCloseLegend">Close</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+      overlay.querySelector('#modalCloseLegend').onclick = () => overlay.remove();
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) overlay.remove();
+      });
+    });
+
+    // ========== Save / Clear (now page-aware) ==========
+    document.getElementById('btnSave').addEventListener('click', () => {
+      const text = getConnectedText();
+      if (!text) {
+        alert('Nothing to save. Build a requirement first.');
+        return;
+      }
+      const page = getCurrentPage();
+      if (!page) return;
+      if (page.savedRequirements.includes(text)) {
+        alert('This requirement is already saved on this page.');
+        return;
+      }
+      page.savedRequirements.push(text);
+      renderSaved();
+      persist();
+    });
+
+    document.getElementById('btnClear').addEventListener('click', () => {
+      if (confirm('Clear the entire workspace on this page?')) {
+        workspace.clear();
+        updateOutput();
+        // Also clear the stored state for this page
+        const page = getCurrentPage();
+        if (page) page.workspaceState = null;
+        persist();
+      }
+    });
+
+    // ========== Piece Library helpers ==========
+    function refreshToolbox() {
+      workspace.updateToolbox(buildToolbox());
+    }
+
+    function addToLibrary(type, text) {
+      text = (text || '').trim();
+      if (!text) return false;
+      // Avoid exact duplicates
+      if (pieceLibrary.some(p => p.type === type && p.text === text)) {
+        return false;
+      }
+      pieceLibrary.push({ type, text });
+      refreshToolbox();
+      renderLibrary();
+      persist();
+      return true;
+    }
+
+    function renderLibrary() {
+      const list = document.getElementById('libraryList');
+      if (!list) return;
+      if (pieceLibrary.length === 0) {
+        list.innerHTML = '<p class="hint" style="padding:0 12px;">No reusable pieces yet.</p>';
+        return;
+      }
+      list.innerHTML = pieceLibrary.map((p, idx) => {
+        const cat = typeToCategory[p.type] || 'Custom';
+        return `
+          <div class="saved-item">
+            <span title="${cat}"><strong>${cat}:</strong> ${p.text}</span>
+            <button onclick="deleteFromLibrary(${idx})" title="Remove from library">✕</button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    window.deleteFromLibrary = async function(idx) {
+      if (idx < 0 || idx >= pieceLibrary.length) return;
+      const removed = pieceLibrary[idx];
+      const confirmed = await showConfirmModal(
+        'Remove from Library?',
+        `Remove “${removed.text}” from the reusable library?\n\nThis cannot be undone.`,
+        { confirmLabel: 'Remove', danger: true }
+      );
+      if (!confirmed) return;
+      pieceLibrary.splice(idx, 1);
+      refreshToolbox();
+      renderLibrary();
+      persist();
+    };
+
+    document.getElementById('btnAddToLibrary').addEventListener('click', () => {
+      const selected = Blockly.getSelected();
+      if (!selected || !selected.getFieldValue) {
+        alert('Select a piece (block) on the workspace first, then click “Add Selected to Library”.');
+        return;
+      }
+      // Blocks without a TEXT field (e.g. the pure “any of” container) cannot be added this way
+      const text = selected.getFieldValue('TEXT');
+      if (text === null || text === undefined) {
+        alert('This piece type cannot be added to the library (it has no editable text).');
+        return;
+      }
+      const trimmed = (text || '').trim();
+      if (!trimmed) {
+        alert('The selected piece has no text to add.');
+        return;
+      }
+
+      // Keep the exact type so the piece reappears in the same category it came from
+      const type = selected.type;
+      const catName = typeToCategory[type] || 'Custom';
+
+      if (addToLibrary(type, trimmed)) {
+        alert(`Added “${trimmed}” to the “${catName}” category.\nIt is now available for reuse in any new requirement.`);
+      } else {
+        alert(`“${trimmed}” is already in the library under “${catName}”.`);
+      }
+    });
+
+    // ========== Pre-load example ==========
+    function loadExample() {
+      // Example using the reusable pieces (PDF report, Word report, CSV)
+      // The system shall provide any of the following: PDF report, Word report, or CSV
+      const start = workspace.newBlock('req_start');
+      start.setFieldValue('The system shall', 'TEXT');
+      start.initSvg();
+      start.render();
+
+      const cap = workspace.newBlock('req_capability');
+      cap.setFieldValue('provide', 'TEXT');
+      cap.initSvg();
+      cap.render();
+
+      const anyOf = workspace.newBlock('req_any_of');
+      anyOf.initSvg();
+      anyOf.render();
+
+      // Create the three list items from the library
+      const item1 = workspace.newBlock('req_list_item');
+      item1.setFieldValue('PDF report', 'TEXT');
+      item1.initSvg();
+      item1.render();
+
+      const item2 = workspace.newBlock('req_list_item');
+      item2.setFieldValue('Word report', 'TEXT');
+      item2.initSvg();
+      item2.render();
+
+      const item3 = workspace.newBlock('req_list_item');
+      item3.setFieldValue('CSV', 'TEXT');
+      item3.initSvg();
+      item3.render();
+
+      // Stack the list items inside the any_of
+      anyOf.getInput('ITEMS').connection.connect(item1.previousConnection);
+      item1.nextConnection.connect(item2.previousConnection);
+      item2.nextConnection.connect(item3.previousConnection);
+
+      // Connect the main chain: Start → Capability → AnyOf
+      start.nextConnection.connect(cap.previousConnection);
+      cap.nextConnection.connect(anyOf.previousConnection);
+
+      // Position nicely
+      start.moveBy(40, 40);
+
+      updateOutput();
+    }
+
+    // Startup: restore from localStorage if available, otherwise load the demo example
+    setTimeout(() => {
+      const restored = loadFromStorage();
+      if (restored) {
+        // Restore toolbox (in case library changed) and the current page workspace
+        refreshToolbox();
+        const page = getCurrentPage();
+        loadWorkspaceState(page ? page.workspaceState : null);
+        renderPageTabs();
+        renderSaved();
+        renderLibrary();
+      } else {
+        // First run – show the demo example
+        loadExample();
+        saveCurrentWorkspaceState();
+        renderPageTabs();
+        renderSaved();
+        renderLibrary();
+        persist(); // save the initial state
+      }
+    }, 300);
+
+    // Resize handling
+    function onResize() {
+      const area = document.getElementById('blocklyArea');
+      const div = document.getElementById('blocklyDiv');
+      div.style.width = area.offsetWidth + 'px';
+      div.style.height = area.offsetHeight + 'px';
+      Blockly.svgResize(workspace);
+    }
+    window.addEventListener('resize', onResize);
+    onResize();
+  </script>
+</body>
+</html>
