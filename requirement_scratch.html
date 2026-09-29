@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Requirement Scratch – Visual Requirements Builder</title>
+  <title>Requirement Builder</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230f172a'/%3E%3Ctext x='32' y='44' text-anchor='middle' font-size='36'%3E%F0%9F%A7%A9%3C/text%3E%3C/svg%3E">
   <script src="https://unpkg.com/blockly@11.2.1/blockly.min.js"></script>
   <style>
     :root {
@@ -35,14 +36,16 @@
       flex-shrink: 0;
     }
     header h1 {
-      font-size: 1.35rem;
+      font-size: 1.75rem;
       font-weight: 600;
       display: flex;
       align-items: center;
       gap: 10px;
+      line-height: 1;
+      margin: 0;
+      cursor: default;
     }
-    header h1 span { color: var(--accent); }
-    .header-actions { display: flex; gap: 10px; align-items: center; }
+    .header-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
     button, .btn {
       background: var(--accent);
       color: #0f172a;
@@ -63,6 +66,30 @@
     button.secondary:hover { background: #475569; }
     button.danger { background: #ef4444; color: white; }
     button.danger:hover { background: #f87171; }
+    /* Compact icon toolbar buttons */
+    button.icon-btn {
+      width: 40px;
+      height: 40px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.15rem;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    button.icon-btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .header-sep {
+      width: 1px;
+      height: 24px;
+      background: #475569;
+      margin: 0 4px;
+      flex-shrink: 0;
+    }
     .main {
       flex: 1;
       display: flex;
@@ -260,6 +287,31 @@
       gap: 6px;
       font-size: 0.8rem;
     }
+    .icon-legend {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+      margin: 8px 0 4px 0;
+    }
+    .icon-legend th,
+    .icon-legend td {
+      text-align: left;
+      padding: 6px 8px;
+      border-bottom: 1px solid #334155;
+      vertical-align: middle;
+    }
+    .icon-legend th {
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .icon-legend td:first-child {
+      width: 2.5rem;
+      font-size: 1.15rem;
+      text-align: center;
+    }
     .type-swatch {
       display: flex;
       align-items: center;
@@ -290,14 +342,17 @@
 </head>
 <body>
   <header>
-    <h1>🧩 <span>Requirement Scratch</span> – Visual Requirements Builder</h1>
+    <h1 title="Requirement Builder">🧩</h1>
     <div class="header-actions">
-      <button id="btnLegend" class="secondary" title="Show piece type legend and connection rules">ℹ️ Key</button>
-      <button id="btnGenerate" title="Assemble the connected pieces into a full requirement sentence">Generate Requirement</button>
-      <button id="btnSave" class="secondary" title="Save the current requirement to the list">Save</button>
-      <button id="btnAddToLibrary" class="secondary" title="Add the selected piece to the library – it will appear in the same category it came from (e.g. Start/Modal, Object, List item…)">Add Selected to Library</button>
-      <button id="btnClear" class="secondary" title="Clear the workspace">Clear</button>
-      <button id="btnSettings" class="secondary" title="Settings, export / import, multi-user config">⚙️ Settings</button>
+      <button id="btnLegend" class="secondary icon-btn" title="Piece type key and connection rules" aria-label="Key">ℹ️</button>
+      <span class="header-sep" aria-hidden="true"></span>
+      <button id="btnSave" class="secondary icon-btn" title="Save requirement to this page’s list" aria-label="Save">💾</button>
+      <button id="btnRemoteSaveHeader" class="icon-btn" title="Sync project to remote server" aria-label="Sync to server">☁️</button>
+      <span class="header-sep" aria-hidden="true"></span>
+      <button id="btnAddToLibrary" class="secondary icon-btn" title="Add selected piece to the library (same category)" aria-label="Add to library">📚</button>
+      <button id="btnClear" class="secondary icon-btn" title="Clear workspace on this page" aria-label="Clear">🗑️</button>
+      <span class="header-sep" aria-hidden="true"></span>
+      <button id="btnSettings" class="secondary icon-btn" title="Settings, import/export, remote URL" aria-label="Settings">⚙️</button>
     </div>
   </header>
 
@@ -309,8 +364,8 @@
     <aside class="sidebar">
       <div class="sidebar-section">
         <h2>Assembled Requirement</h2>
-        <div id="requirementOutput" class="empty">Connect pieces on the left, then click “Generate Requirement”.</div>
-        <p class="hint">Only compatible piece types snap together. Edit any piece’s text by clicking it. Click <strong>ℹ️ Key</strong> in the header for the colour legend.</p>
+        <div id="requirementOutput" class="empty">Connect pieces on the left — the sentence updates live.</div>
+        <p class="hint">Only compatible piece types snap together. Edit text by clicking a piece. Use <strong>ℹ️</strong> for the colour key, <strong>💾</strong> to save to this page, <strong>☁️</strong> to sync to the server.</p>
       </div>
 
       <div class="sidebar-section" style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
@@ -826,12 +881,12 @@
         el.textContent = text;
         el.classList.remove('empty');
       } else {
-        el.textContent = 'Connect pieces on the left, then click “Generate Requirement”.';
+        el.textContent = 'Connect pieces on the left — the sentence updates live.';
         el.classList.add('empty');
       }
     }
 
-    document.getElementById('btnGenerate').addEventListener('click', updateOutput);
+    // Requirement text updates live on workspace change (no separate Generate button)
 
     // Also update live when blocks change (nice UX)
     workspace.addChangeListener(function(e) {
@@ -1437,8 +1492,8 @@
 
           <div class="settings-actions-row">
             <button id="btnRemoteLoad" class="secondary">Load from remote</button>
-            <button id="btnRemoteSave">Save to remote</button>
           </div>
+          <p class="hint" style="margin: 0 0 12px 0;">Use the <strong>☁️</strong> button in the header to sync (save) to the server.</p>
           <div class="settings-actions-row">
             <button id="btnExportData" class="secondary">Export JSON</button>
             <button id="btnImportData" class="secondary">Import JSON</button>
@@ -1478,18 +1533,6 @@
           close();
         } catch (err) {
           alert('Load from remote failed:\n' + (err.message || err));
-        }
-      };
-
-      overlay.querySelector('#btnRemoteSave').onclick = async () => {
-        try {
-          appSettings.remoteUrl = overlay.querySelector('#settingsRemoteUrl').value.trim();
-          appSettings.remoteUser = overlay.querySelector('#settingsRemoteUser').value.trim();
-          saveSettings();
-          await remoteSave();
-          alert('Saved to remote successfully.');
-        } catch (err) {
-          alert('Save to remote failed:\n' + (err.message || err));
         }
       };
 
@@ -1574,9 +1617,26 @@
       const overlay = document.createElement('div');
       overlay.className = 'modal-overlay';
       overlay.innerHTML = `
-        <div class="modal-box" style="max-width: 480px;">
-          <h3 style="color: var(--accent);">Piece Type Key</h3>
-          <div class="type-legend" style="margin: 12px 0 16px 0;">
+        <div class="modal-box" style="max-width: 520px;">
+          <h3 style="color: var(--accent);">Info</h3>
+
+          <p style="color: var(--muted); font-size: 0.8rem; margin: 0 0 6px 0; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;">Toolbar</p>
+          <table class="icon-legend">
+            <thead>
+              <tr><th>Icon</th><th>Action</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>ℹ️</td><td>This info panel (piece colours and connection rules)</td></tr>
+              <tr><td>💾</td><td>Save the current requirement to this page’s list</td></tr>
+              <tr><td>☁️</td><td>Sync the whole project to the remote server</td></tr>
+              <tr><td>📚</td><td>Add the selected piece to the reusable library</td></tr>
+              <tr><td>🗑️</td><td>Clear all blocks on this page</td></tr>
+              <tr><td>⚙️</td><td>Settings (remote URL, load from server, import/export)</td></tr>
+            </tbody>
+          </table>
+
+          <p style="color: var(--muted); font-size: 0.8rem; margin: 16px 0 8px 0; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;">Piece types</p>
+          <div class="type-legend" style="margin: 0 0 16px 0;">
             <div class="type-swatch"><span class="swatch start"></span> Start / Modal</div>
             <div class="type-swatch"><span class="swatch capability"></span> Capability</div>
             <div class="type-swatch"><span class="swatch object"></span> Object</div>
@@ -1590,7 +1650,7 @@
             <strong>Connection order:</strong> Start → Capability → Object → Purpose / Condition
           </p>
           <p style="color: var(--muted); font-size: 0.85rem; line-height: 1.45; margin-bottom: 16px;">
-            Use “Any of the following” for alternative lists. Edited pieces can be added to the library (header button) and reappear in the <strong>same category</strong> they came from.
+            Use “Any of the following” for alternative lists. Edited pieces added to the library (📚) reappear in the <strong>same category</strong> they came from. The requirement sentence updates live as you connect blocks.
           </p>
           <div class="modal-actions">
             <button class="secondary" id="modalCloseLegend">Close</button>
@@ -1604,7 +1664,7 @@
       });
     });
 
-    // ========== Save / Clear (now page-aware) ==========
+    // ========== Save / Clear / Sync (page-aware) ==========
     document.getElementById('btnSave').addEventListener('click', () => {
       const text = getConnectedText();
       if (!text) {
@@ -1622,15 +1682,31 @@
       persist();
     });
 
-    document.getElementById('btnClear').addEventListener('click', () => {
-      if (confirm('Clear the entire workspace on this page?')) {
-        workspace.clear();
-        updateOutput();
-        // Also clear the stored state for this page
-        const page = getCurrentPage();
-        if (page) page.workspaceState = null;
-        persist();
+    document.getElementById('btnRemoteSaveHeader').addEventListener('click', async () => {
+      try {
+        if (!getRemoteUrl()) {
+          alert('Set a Remote sync URL in Settings (⚙️) first.');
+          return;
+        }
+        await remoteSave();
+        alert('Synced to server successfully.');
+      } catch (err) {
+        alert('Sync to server failed:\n' + (err.message || err));
       }
+    });
+
+    document.getElementById('btnClear').addEventListener('click', async () => {
+      const ok = await showConfirmModal(
+        'Clear workspace?',
+        'Clear all blocks on this page?\n\nSaved requirements on the page are kept.',
+        { confirmLabel: 'Clear', danger: true }
+      );
+      if (!ok) return;
+      workspace.clear();
+      updateOutput();
+      const page = getCurrentPage();
+      if (page) page.workspaceState = null;
+      persist();
     });
 
     // ========== Piece Library helpers ==========
